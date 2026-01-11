@@ -85,7 +85,7 @@ export default function WebhookConfig() {
             const res = await fetch('/api/v1/merchants/me/webhook', {
                 method: 'PUT',
                 headers: getAuthHeaders(merchant),
-                body: JSON.stringify({ url: webhookUrl }),
+                body: JSON.stringify({ webhook_url: webhookUrl }),
             });
             if (res.ok) alert('Webhook URL updated successfully');
             else alert('Failed to update webhook URL');
