@@ -239,17 +239,18 @@ export default function WebhookConfig() {
                                             <span className={`status-badge ${log.status === 'SUCCESS' ? 'status-active' : 'badge-failed'}`} style={log.status === 'SUCCESS' ? {} : { background: '#fef2f2', color: '#b91c1c' }}>
                                                 {log.status}
                                             </span>
-                                            <div className="text-xs text-gray-500 mt-1" style={{ fontSize: '0.75rem' }}>{log.response_code || '-'}</div>
+                                            <div className="text-xs text-gray-500 mt-1" style={{ fontSize: '0.75rem' }}>{log.responseCode || '-'}</div>
                                         </td>
                                         <td>
-                                            <div className="font-medium">{log.event_type}</div>
+                                            <div className="font-medium">{log.event || log.eventType}</div>
                                             <div className="text-xs text-gray-500 font-mono">{log.id.substring(0, 8)}...</div>
                                         </td>
                                         <td className="text-sm">
-                                            {new Date(log.created_at).toLocaleString()}
+                                            {log.createdAt ? new Date(log.createdAt).toLocaleString() : '-'}
                                         </td>
                                         <td className="text-sm font-mono">
-                                            {log.duration_ms ? `${log.duration_ms}ms` : '-'}
+                                            {/* duration not in entity, maybe calculated or removed? Using attempts for now or just - */}
+                                            {log.attempts || 0} attempts
                                         </td>
                                         <td>
                                             {log.status === 'FAILED' && (
