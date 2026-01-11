@@ -62,7 +62,8 @@ public class SecurityConfig {
                 throws ServletException, IOException {
 
             String path = request.getRequestURI();
-            if (path.startsWith("/health") || path.startsWith("/api/v1/test") || path.contains("/public")) {
+            // Looser check to avoid matching issues with proxies
+            if (path.startsWith("/health") || path.contains("/api/v1/test") || path.contains("/public")) {
                 filterChain.doFilter(request, response);
                 return;
             }

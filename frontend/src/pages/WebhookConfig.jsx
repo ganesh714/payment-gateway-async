@@ -1,20 +1,45 @@
 import React, { useState, useEffect } from 'react';
 
+const CodeBlock = ({ code, language = 'bash' }) => {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="code-block-container" style={{ margin: 0 }}>
+            {/* Header suppressed for simple inputs unless multiline */}
+            <div className="code-display" style={{ background: '#f3f4f6', color: '#374151', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <code style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{code}</code>
+                <button
+                    onClick={handleCopy}
+                    className="btn-link text-xs"
+                    style={{ fontSize: '0.75rem', textTransform: 'uppercase', marginLeft: '1rem', whiteSpace: 'nowrap' }}
+                >
+                    {copied ? 'Copied!' : 'Copy'}
+                </button>
+            </div>
+        </div>
+    );
+};
+
 export default function WebhookConfig() {
     const [webhookUrl, setWebhookUrl] = useState('');
     const [webhookSecret, setWebhookSecret] = useState('');
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [limit] = useState(10);
-    const [offset, setOffset] = useState(0);
-    const [total, setTotal] = useState(0);
+    const [saving, setSaving] = useState(false);
+    const [showSecret, setShowSecret] = useState(false);
+    const [confirmRegen, setConfirmRegen] = useState(false);
 
     useEffect(() => {
-        fetchConfig();
-        fetchLogs();
-    }, [offset]);
+        fetchData();
+    }, []);
 
-    const fetchConfig = async () => {
+    const fetchData = async () => {
         try {
             const res = await fetch('/api/v1/merchants/me');
             if (res.ok) {
@@ -22,174 +47,194 @@ export default function WebhookConfig() {
                 setWebhookUrl(data.webhook_url || '');
                 setWebhookSecret(data.webhook_secret || 'Not Configured');
             }
-        } catch (err) {
-            console.error(err);
-        }
-    };
 
-    const fetchLogs = async () => {
-        try {
-            const res = await fetch(`/api/v1/webhooks?limit=${limit}&offset=${offset}`);
-            if (res.ok) {
-                const data = await res.json();
-                setLogs(data.data);
-                setTotal(data.total);
+            const logsRes = await fetch('/api/v1/webhooks');
+            if (logsRes.ok) {
+                const logsData = await logsRes.json();
+                setLogs(logsData);
             }
         } catch (err) {
-            console.error(err);
+            console.error('Failed to fetch webhook config', err);
         } finally {
             setLoading(false);
         }
     };
 
-    const saveConfig = async (e) => {
-        e.preventDefault();
-        // Assuming we have an endpoint to update merchant or just webhook url
-        // Since creating a new specific endpoint wasn't in list, but "New: Webhook Configuration Page... <form ...>" implies we can save.
-        // I should check if I missed "Update Merchant" endpoint. 
-        // Requirement "New: Webhook Configuration Page... <button data-test-id="save-webhook-button">Save Configuration</button>"
-        // implies functionality. I'll assume PUT /api/v1/merchants/me or similar is needed OR I create one.
-        // I'll assume we can use PUT /api/v1/merchants/me (if it exists) or create it.
-        // Wait, the instructions didn't explicitly ask for "Update Merchant Endpoint" in Backend section, but "Enhanced Dashboard Features" implies it works.
-        // I will implement a PUT /api/v1/merchants/me/webhook endpoint in Backend if needed, or update existing Merchant update.
-        // I missed checking MerchantController.
-        // Let's assume I need to ADD it.
-
+    const handleSave = async () => {
+        setSaving(true);
         try {
             const res = await fetch('/api/v1/merchants/me/webhook', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ webhook_url: webhookUrl })
+                body: JSON.stringify({ url: webhookUrl }),
             });
-            if (res.ok) {
-                alert('Webhook URL saved');
-            } else {
-                alert('Failed to save');
-            }
+            if (res.ok) alert('Webhook URL updated successfully');
+            else alert('Failed to update webhook URL');
         } catch (err) {
-            console.error(err);
+            alert('Error saving webhook URL');
+        } finally {
+            setSaving(false);
         }
     };
 
-    const regenerateSecret = async () => {
-        // Similarly, need an endpoint
+    const handleRegenerateSecret = async () => {
+        if (!confirmRegen) {
+            setConfirmRegen(true);
+            return;
+        }
+
         try {
             const res = await fetch('/api/v1/merchants/me/webhook/secret', { method: 'POST' });
             if (res.ok) {
                 const data = await res.json();
-                setWebhookSecret(data.webhook_secret);
+                setWebhookSecret(data.secret);
+                alert('Secret regenerated');
+                setConfirmRegen(false);
             }
-        } catch (err) { }
+        } catch (err) {
+            alert('Failed to regenerate secret');
+        }
     };
 
-    const retryWebhook = async (webhookId) => {
+    const handleRetry = async (logId) => {
         try {
-            const res = await fetch(`/api/v1/webhooks/${webhookId}/retry`, { method: 'POST' });
-            if (res.ok) {
-                alert('Retry scheduled');
-                fetchLogs();
-            }
-        } catch (err) { }
+            await fetch(`/api/v1/webhooks/${logId}/retry`, { method: 'POST' });
+            alert('Retry initiated');
+            fetchData(); // Refresh logs
+        } catch (err) {
+            alert('Failed to retry webhook');
+        }
     };
+
+    if (loading) return <div className="p-6">Loading...</div>;
 
     return (
-        <div className="p-6" data-test-id="webhook-config">
-            <h2 className="text-2xl font-bold mb-6">Webhook Configuration</h2>
+        <div className="p-6 max-w-5xl mx-auto">
+            <div className="header mb-6">
+                <h2 className="title">Webhook Configuration</h2>
+                <p className="text-gray-500 mt-4">Manage real-time event notifications.</p>
+            </div>
 
-            <div className="bg-white p-6 rounded-lg shadow mb-8">
-                <form onSubmit={saveConfig} data-test-id="webhook-config-form" className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Webhook URL</label>
-                        <input
-                            type="url"
-                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm p-2 border"
-                            placeholder="https://yoursite.com/webhook"
-                            value={webhookUrl}
-                            onChange={(e) => setWebhookUrl(e.target.value)}
-                            data-test-id="webhook-url-input"
-                        />
-                    </div>
+            <div className="card p-6 mb-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold">Endpoint Details</h3>
+                    <span className={`status-badge ${webhookUrl ? 'status-active' : 'status-inactive'}`}>
+                        {webhookUrl ? 'Active' : 'Inactive'}
+                    </span>
+                </div>
 
+                <div className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Webhook Secret</label>
-                        <div className="flex items-center gap-4 mt-1">
-                            <code className="bg-gray-100 p-2 rounded" data-test-id="webhook-secret">{webhookSecret}</code>
+                        <label className="form-label">Webhook URL</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="url"
+                                className="input-field"
+                                placeholder="https://your-server.com/webhooks"
+                                value={webhookUrl}
+                                onChange={(e) => setWebhookUrl(e.target.value)}
+                            />
                             <button
-                                type="button"
-                                onClick={regenerateSecret}
-                                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                                data-test-id="regenerate-secret-button"
+                                onClick={handleSave}
+                                disabled={saving}
+                                className="btn btn-primary"
+                                style={{ whiteSpace: 'nowrap' }}
                             >
-                                Regenerate
+                                {saving ? 'Saving...' : 'Save URL'}
                             </button>
                         </div>
                     </div>
 
-                    <div className="flex gap-4">
-                        <button
-                            type="submit"
-                            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
-                            data-test-id="save-webhook-button"
-                        >
-                            Save Configuration
-                        </button>
-                        <button
-                            type="button"
-                            className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"
-                            data-test-id="test-webhook-button"
-                            onClick={() => { /* Trigger test? Optional in backend reqs */ }}
-                        >
-                            Send Test Webhook
-                        </button>
+                    <div>
+                        <label className="form-label">Signing Secret</label>
+                        <p className="text-sm text-gray-500 mb-2">Used to verify that events originated from us (HMAC-SHA256).</p>
+                        <div className="flex items-center gap-2 bg-gray-50 p-2 rounded border" style={{ background: '#f9fafb', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid #e5e7eb' }}>
+                            <div className="flex-1 font-mono text-sm break-all" style={{ flex: 1, wordBreak: 'break-all' }}>
+                                {showSecret ? webhookSecret : '••••••••••••••••••••••••••••••••'}
+                            </div>
+                            <button onClick={() => setShowSecret(!showSecret)} className="btn btn-secondary text-sm">
+                                {showSecret ? 'Hide' : 'Show'}
+                            </button>
+                            <button
+                                onClick={() => {
+                                    navigator.clipboard.writeText(webhookSecret);
+                                    alert('Copied!');
+                                }}
+                                className="btn btn-secondary text-sm"
+                            >
+                                Copy
+                            </button>
+                        </div>
+                        <div className="mt-4">
+                            {confirmRegen ? (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-red-600" style={{ color: '#dc2626' }}>Are you sure? Old secrets will stop working immediately.</span>
+                                    <button onClick={handleRegenerateSecret} className="btn btn-danger text-sm">Yes, Roll Key</button>
+                                    <button onClick={() => setConfirmRegen(false)} className="btn btn-secondary text-sm">Cancel</button>
+                                </div>
+                            ) : (
+                                <button onClick={handleRegenerateSecret} className="btn btn-link text-sm text-red-600" style={{ color: '#dc2626' }}>
+                                    Roll Signing Key
+                                </button>
+                            )}
+                        </div>
                     </div>
-                </form>
+                </div>
             </div>
 
-            <h3 className="text-xl font-bold mb-4">Webhook Logs</h3>
-            <div className="bg-white shadow rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200" data-test-id="webhook-logs-table">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Attempts</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Attempt</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Response Code</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {logs.map(log => (
-                            <tr key={log.id} data-test-id="webhook-log-item" data-webhook-id={log.id}>
-                                <td className="px-6 py-4 whitespace-nowrap" data-test-id="webhook-event">{log.event}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${log.status === 'success' ? 'bg-green-100 text-green-800' :
-                                            log.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-                                        }`} data-test-id="webhook-status">
-                                        {log.status}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap" data-test-id="webhook-attempts">{log.attempts}</td>
-                                <td className="px-6 py-4 whitespace-nowrap" data-test-id="webhook-last-attempt">
-                                    {log.last_attempt_at ? new Date(log.last_attempt_at).toLocaleString() : '-'}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap" data-test-id="webhook-response-code">{log.response_code || '-'}</td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                    {log.status !== 'success' && (
-                                        <button
-                                            onClick={() => retryWebhook(log.id)}
-                                            className="text-indigo-600 hover:text-indigo-900"
-                                            data-test-id="retry-webhook-button"
-                                            data-webhook-id={log.id}
-                                        >
-                                            Retry
-                                        </button>
-                                    )}
-                                </td>
+            <div className="card">
+                <div className="p-6 border-b" style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <h3 className="text-lg font-bold">Recent Deliveries</h3>
+                </div>
+                <div className="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>Event</th>
+                                <th>Attempted At</th>
+                                <th>Duration</th>
+                                <th>Actions</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {logs.length === 0 ? (
+                                <tr>
+                                    <td colSpan="5" className="text-center text-gray-500" style={{ textAlign: 'center' }}>No webhook logs found.</td>
+                                </tr>
+                            ) : (
+                                logs.map((log) => (
+                                    <tr key={log.id}>
+                                        <td>
+                                            <span className={`status-badge ${log.status === 'SUCCESS' ? 'status-active' : 'badge-failed'}`} style={log.status === 'SUCCESS' ? {} : { background: '#fef2f2', color: '#b91c1c' }}>
+                                                {log.status}
+                                            </span>
+                                            <div className="text-xs text-gray-500 mt-1" style={{ fontSize: '0.75rem' }}>{log.response_code || '-'}</div>
+                                        </td>
+                                        <td>
+                                            <div className="font-medium">{log.event_type}</div>
+                                            <div className="text-xs text-gray-500 font-mono">{log.id.substring(0, 8)}...</div>
+                                        </td>
+                                        <td className="text-sm">
+                                            {new Date(log.created_at).toLocaleString()}
+                                        </td>
+                                        <td className="text-sm font-mono">
+                                            {log.duration_ms ? `${log.duration_ms}ms` : '-'}
+                                        </td>
+                                        <td>
+                                            {log.status === 'FAILED' && (
+                                                <button onClick={() => handleRetry(log.id)} className="btn btn-secondary text-xs">
+                                                    Retry
+                                                </button>
+                                            )}
+                                            <button className="btn btn-link text-xs ml-2">Details</button>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );

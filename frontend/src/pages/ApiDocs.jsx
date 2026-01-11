@@ -10,17 +10,18 @@ const CodeBlock = ({ code, language = 'bash' }) => {
   };
 
   return (
-    <div className="relative group mt-4 mb-6 rounded-lg overflow-hidden border border-gray-700 shadow-lg">
-      <div className="bg-gray-800 px-4 py-2 flex justify-between items-center border-b border-gray-700">
-        <span className="text-xs text-gray-400 font-mono uppercase">{language}</span>
+    <div className="code-block-container">
+      <div className="code-header">
+        <span>{language}</span>
         <button
           onClick={handleCopy}
-          className="text-xs text-gray-300 hover:text-white transition-colors focus:outline-none"
+          className="btn-link text-xs"
+          style={{ color: '#9ca3af', textTransform: 'uppercase', textDecoration: 'none' }}
         >
           {copied ? 'Copied!' : 'Copy Code'}
         </button>
       </div>
-      <pre className="bg-gray-900 text-gray-100 p-4 overflow-x-auto text-sm font-mono leading-relaxed" data-test-id={`code-snippet-${language}`}>
+      <pre className="code-content">
         <code>{code}</code>
       </pre>
     </div>
@@ -29,21 +30,20 @@ const CodeBlock = ({ code, language = 'bash' }) => {
 
 export default function ApiDocs() {
   return (
-    <div className="p-6 max-w-5xl mx-auto" data-test-id="api-docs">
-      <div className="header mb-10">
-        <h2 className="title text-3xl">Integration Guide</h2>
+    <div className="p-6 max-w-5xl mx-auto">
+      <div className="header mb-8">
+        <h2 className="title">Integration Guide</h2>
         <p className="text-gray-500 mt-2 text-lg">Accept payments and handle events in 3 simple steps.</p>
       </div>
 
-      <div className="space-y-12">
+      <div className="space-y-8">
         {/* Step 1: Create Order */}
-        <section data-test-id="section-create-order" className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500"></div>
-          <h3 className="text-2xl font-bold mb-3 text-gray-900 flex items-center">
-            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 text-sm font-bold mr-3">1</span>
+        <section className="doc-section">
+          <h3 className="doc-step">
+            <span className="step-number">1</span>
             Create an Order
           </h3>
-          <p className="text-gray-600 mb-6 leading-relaxed">
+          <p className="text-gray-500 mb-6 leading-relaxed">
             Call the API from your backend to generate a secure <code>orderId</code>. This ID tracks the transaction lifecycle.
           </p>
 
@@ -60,23 +60,22 @@ export default function ApiDocs() {
   }'`}
           />
 
-          <div className="bg-indigo-50 p-4 rounded-md border border-indigo-100">
-            <h4 className="text-sm font-bold text-indigo-900 mb-1">Note</h4>
-            <p className="text-sm text-indigo-800">
+          <div className="mt-4 p-4 rounded-lg border" style={{ background: '#eef2ff', borderColor: '#c7d2fe' }}>
+            <h4 className="text-sm font-bold mb-1" style={{ color: '#312e81' }}>Note</h4>
+            <p className="text-sm" style={{ color: '#3730a3' }}>
               Amounts are in the smallest currency unit (e.g., paise for INR).
-              <code>50000</code> = ₹500.00.
+              <code style={{ background: 'rgba(255,255,255,0.5)', padding: '0 4px', borderRadius: '4px' }}>50000</code> = ₹500.00.
             </p>
           </div>
         </section>
 
         {/* Step 2: SDK Integration */}
-        <section data-test-id="section-sdk-integration" className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500"></div>
-          <h3 className="text-2xl font-bold mb-3 text-gray-900 flex items-center">
-            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 text-sm font-bold mr-3">2</span>
+        <section className="doc-section">
+          <h3 className="doc-step">
+            <span className="step-number">2</span>
             Frontend Integration
           </h3>
-          <p className="text-gray-600 mb-6 leading-relaxed">
+          <p className="text-gray-500 mb-6 leading-relaxed">
             Include our JavaScript SDK on your checkout page to render the payment modal securely.
           </p>
 
@@ -110,13 +109,12 @@ export default function ApiDocs() {
         </section>
 
         {/* Step 3: Webhook Verification */}
-        <section data-test-id="section-webhook-verification" className="bg-white p-8 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-2 h-full bg-indigo-500"></div>
-          <h3 className="text-2xl font-bold mb-3 text-gray-900 flex items-center">
-            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 text-sm font-bold mr-3">3</span>
+        <section className="doc-section">
+          <h3 className="doc-step">
+            <span className="step-number">3</span>
             Webhook Verification
           </h3>
-          <p className="text-gray-600 mb-6 leading-relaxed">
+          <p className="text-gray-500 mb-6 leading-relaxed">
             Secure your webhooks by verifying the HMAC-SHA256 signature sent in the <code>X-Webhook-Signature</code> header.
           </p>
 
