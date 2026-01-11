@@ -11,7 +11,6 @@ const CodeBlock = ({ code, language = 'bash' }) => {
 
     return (
         <div className="code-block-container" style={{ margin: 0 }}>
-            {/* Header suppressed for simple inputs unless multiline */}
             <div className="code-display" style={{ background: '#f3f4f6', color: '#374151', padding: '0.5rem 0.75rem', borderRadius: '0.375rem', border: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <code style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{code}</code>
                 <button
@@ -27,6 +26,7 @@ const CodeBlock = ({ code, language = 'bash' }) => {
 };
 
 export default function WebhookConfig() {
+    const [merchant, setMerchant] = useState(null);
     const [webhookUrl, setWebhookUrl] = useState('');
     const [webhookSecret, setWebhookSecret] = useState('');
     const [logs, setLogs] = useState([]);
@@ -39,19 +39,38 @@ export default function WebhookConfig() {
         fetchData();
     }, []);
 
+    const getAuthHeaders = (creds) => {
+        if (!creds) return {};
+        return {
+            'X-Api-Key': creds.apiKey,
+            'X-Api-Secret': creds.apiSecret,
+            'Content-Type': 'application/json'
+        };
+    };
+
     const fetchData = async () => {
         try {
-            const res = await fetch('/api/v1/merchants/me');
+            // 1. Fetch Credentials first (public endpoint)
+            const credsRes = await fetch('/api/v1/test/merchant');
+            if (!credsRes.ok) throw new Error('Failed to fetch credentials');
+            const creds = await credsRes.json();
+            setMerchant(creds);
+
+            const headers = getAuthHeaders(creds);
+
+            // 2. Fetch Merchant Config
+            const res = await fetch('/api/v1/merchants/me', { headers });
             if (res.ok) {
                 const data = await res.json();
                 setWebhookUrl(data.webhook_url || '');
                 setWebhookSecret(data.webhook_secret || 'Not Configured');
             }
 
-            const logsRes = await fetch('/api/v1/webhooks');
+            // 3. Fetch Logs
+            const logsRes = await fetch('/api/v1/webhooks', { headers });
             if (logsRes.ok) {
                 const logsData = await logsRes.json();
-                setLogs(logsData);
+                setLogs(logsData.data || []);
             }
         } catch (err) {
             console.error('Failed to fetch webhook config', err);
@@ -65,7 +84,7 @@ export default function WebhookConfig() {
         try {
             const res = await fetch('/api/v1/merchants/me/webhook', {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(merchant),
                 body: JSON.stringify({ url: webhookUrl }),
             });
             if (res.ok) alert('Webhook URL updated successfully');
@@ -84,7 +103,10 @@ export default function WebhookConfig() {
         }
 
         try {
-            const res = await fetch('/api/v1/merchants/me/webhook/secret', { method: 'POST' });
+            const res = await fetch('/api/v1/merchants/me/webhook/secret', {
+                method: 'POST',
+                headers: getAuthHeaders(merchant)
+            });
             if (res.ok) {
                 const data = await res.json();
                 setWebhookSecret(data.secret);
@@ -98,9 +120,17 @@ export default function WebhookConfig() {
 
     const handleRetry = async (logId) => {
         try {
-            await fetch(`/api/v1/webhooks/${logId}/retry`, { method: 'POST' });
+            await fetch(`/api/v1/webhooks/${logId}/retry`, {
+                method: 'POST',
+                headers: getAuthHeaders(merchant)
+            });
             alert('Retry initiated');
-            fetchData(); // Refresh logs
+            // Refresh logs
+            const logsRes = await fetch('/api/v1/webhooks', { headers: getAuthHeaders(merchant) });
+            if (logsRes.ok) {
+                const logsData = await logsRes.json();
+                setLogs(logsData.data || []);
+            }
         } catch (err) {
             alert('Failed to retry webhook');
         }

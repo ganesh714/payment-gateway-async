@@ -1,162 +1,175 @@
-# 💳 Payment Gateway System
+# Async Payment Gateway
 
-> A robust, full-stack payment processing simulator inspired by Razorpay, featuring Merchant Onboarding, Order Management, and a Hosted Checkout experience.
+A robust, production-ready payment gateway simulation featuring asynchronous processing, webhook delivery with retries, and a developer-friendly dashboard.
 
----
+## 🚀 Features
 
-## 🚀 Overview
-
-This project is a comprehensive simulation of a modern payment gateway. It provides a complete ecosystem for merchants to manage orders and for users to complete payments securely. Built with a microservices-oriented architecture in mind, it leverages **Spring Boot** for high-performance backend processing and **React** for a responsive user interface.
-
-### Key Features
-- **Merchant Dashboard**: Real-time insights into transactions and API credentials.
-- **Hosted Checkout**: A secure, customizable payment page for end-users.
-- **Simulated Processing**: Realistic payment lifecycle with random success/failure scenarios (5-10s latency).
-- **Robust Validation**: Implements Luhn algorithm for cards and VPA validation for UPI.
+- **Async Payment Processing**: Handles high concurrency using Redis queues and background workers.
+- **Webhooks**: Reliable event delivery with exponential backoff retries and HMAC-SHA256 signing.
+- **Idempotency**: Prevents duplicate transactions using `Idempotency-Key` headers.
+- **Developer Dashboard**: Manage API keys, view transaction analytics, and debug webhooks.
+- **Embeddable SDK**: Drop-in JavaScript widget for seamless checkout integration.
 
 ---
 
-## 🛠️ Tech Stack
-
-| Component | Technology | Description |
-| :--- | :--- | :--- |
-| **Backend** | ![Java](https://img.shields.io/badge/Java-ED8B00?style=flat-square&logo=openjdk&logoColor=white) **Spring Boot** | REST API, Order Logic, Payment Processing |
-| **Frontend** | ![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB) **Vite** | Admin Dashboard & Checkout SPA |
-| **Database** | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat-square&logo=postgresql&logoColor=white) | Relational Data Store |
-| **DevOps** | ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white) | Containerization & Orchestration |
-
----
-
-## 📂 Project Structure
-
-```bash
-payment-gateway-system/
-├── backend/           # Spring Boot Application
-├── frontend/          # React Admin Dashboard
-├── checkout-page/     # Standalone Payment Page
-├── docker-compose.yml # Orchestration Config
-└── README.md          # Project Documentation
-```
-
----
-
-## 🏗️ Architecture
-
-```mermaid
-graph TD
-    Client["Client App/Postman"] -->|API Calls| API["Backend API (8000)"]
-    API -->|Auth & Data| DB[("PostgreSQL")]
-    Browser["User Browser"] -->|View Dashboard| Dashboard["React Dashboard (3000)"]
-    Browser -->|Process Payment| Checkout["Checkout Page (3001)"]
-    Checkout -->|Submit Payment| API
-    Dashboard -->|Fetch Stats| API
-```
-
----
-
-## 🏁 Getting Started
+## 🛠️ Setup & Installation
 
 ### Prerequisites
-- [Docker Desktop](https://www.docker.com/products/docker-desktop) installed and running.
+- Docker & Docker Compose
+- Node.js (v18+) - *Optional, for local frontend dev*
+- Java 17+ - *Optional, for local backend dev*
 
-### Installation & Run
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/ganesh714/payment-gateway-system.git
-   cd payment-gateway-system
-   ```
+### Quick Start
+1.  **Clone the repository**
+    ```bash
+    git clone <repository-url>
+    cd payment-gateway-async
+    ```
 
-2. **Start the application**:
-   ```bash
-   docker-compose up -d --build
-   ```
+2.  **Start Services**
+    ```bash
+    docker-compose up -d --build
+    ```
+    This launches:
+    - **API**: `http://localhost:8000`
+    - **Worker**: Background job processor
+    - **Dashboard**: `http://localhost:3000`
+    - **Checkout SDK**: `http://localhost:3001`
+    - **Postgres**: Database
+    - **Redis**: Job Queue
 
-3. **Wait for initialization**:
-   Ensure all containers are healthy. The backend may take a few moments to start.
+3.  **Access Dashboard**
+    - Go to [http://localhost:3000](http://localhost:3000).
+    - The test credentials will be automatically loaded (or visible in the UI).
 
 ---
 
-## 🧪 Usage & Manual Testing
+## 🔧 Environment Configuration
 
-Follow these steps to experience the complete payment lifecycle.
+Configuration is managed via `docker-compose.yml` and environment variables.
 
-### 1. Create a Test Order
-Generate a new order ID using the API.
+| Variable | Service | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `DATABASE_URL` | API/Worker | `jdbc:postgresql://postgres:5432/payment_gateway` | PostgreSQL JDBC URL |
+| `SPRING_REDIS_URL` | API/Worker | `redis://redis:6379` | Redis Connection String |
+| `TEST_MODE` | Worker | `false` | Enable simulated payment delays |
+| `TEST_PAYMENT_SUCCESS` | Worker | `true` | Simulation success rate bool |
 
-**Option A: Windows (PowerShell)**
-```powershell
-Invoke-RestMethod -Uri "http://localhost:8000/api/v1/orders" -Method Post -Headers @{"X-Api-Key"="key_test_abc123"; "X-Api-Secret"="secret_test_xyz789"; "Content-Type"="application/json"} -Body '{"amount": 75000, "currency": "INR", "receipt": "final_verification"}'
+---
+
+## 📚 API Documentation
+
+### Authentication
+All API requests require authentication headers:
+- `X-Api-Key`: Your public key
+- `X-Api-Secret`: Your secret key
+
+### Endpoints
+
+#### 1. Create Order
+Initialize a transaction session.
+- **POST** `/api/v1/orders`
+- **Body**:
+  ```json
+  {
+    "amount": 50000,
+    "currency": "INR",
+    "receipt": "receipt_123"
+  }
+  ```
+- **Response**: Returns `orderId` used for frontend SDK.
+
+#### 2. Initiate Payment
+Usually called by the Frontend SDK/Widget.
+- **POST** `/api/v1/payments`
+- **Headers**: `Idempotency-Key: <unique-uuid>` (Recommended)
+- **Body**:
+  ```json
+  {
+    "order_id": "order_xyz...",
+    "amount": 50000,
+    "method": "upi",
+    "vpa": "customer@upi"
+  }
+  ```
+
+#### 3. Capture Payment
+Manually capture an authorized payment (if auto-capture is off).
+- **POST** `/api/v1/payments/{paymentId}/capture`
+- **Body**: `{"amount": 50000}`
+
+#### 4. Refund Payment
+- **POST** `/api/v1/payments/{paymentId}/refunds`
+
+---
+
+## 📡 Webhook Integration
+
+Configure webhooks in the **Dashboard** -> **Webhooks** tab.
+
+### Verification
+Verify the `X-Webhook-Signature` header using HMAC-SHA256 with your **Webhook Secret**.
+
+```javascript
+// Node.js Example
+const crypto = require('crypto');
+const signature = req.headers['x-webhook-signature'];
+const expected = crypto
+  .createHmac('sha256', process.env.WEBHOOK_SECRET)
+  .update(JSON.stringify(req.body))
+  .digest('hex');
+
+if (signature === expected) {
+  // Safe to process
+}
 ```
 
-**Option B: Mac/Linux (curl)**
+### Retry Policy
+- **Strategy**: Exponential Backoff
+- **Intervals**: 30s, 60s, 120s, 300s, 600s (Max 5 retries)
+- **Manual Retry**: You can manually trigger a retry from the Dashboard for failed events.
+
+---
+
+## 📦 SDK Integration
+
+Add the checkout widget to your frontend.
+
+### 1. Include Script
+```html
+<script src="http://localhost:3001/checkout.js"></script>
+```
+
+### 2. Initialize
+```javascript
+const gateway = new PaymentGateway({
+  key: 'key_test_abc123', // Your Publishable Key
+  orderId: 'order_12345', // from Backend
+  onSuccess: (data) => console.log('Success:', data),
+  onFailure: (err) => console.error('Error:', err)
+});
+
+// Open Modal
+gateway.open();
+```
+
+---
+
+## 🧪 Testing
+
+### Automated Tests (Submission)
+Run the provided `submission.yml` verification commands.
 ```bash
-curl -X POST http://localhost:8000/api/v1/orders \
-  -H "X-Api-Key: key_test_abc123" \
-  -H "X-Api-Secret: secret_test_xyz789" \
-  -H "Content-Type: application/json" \
-  -d '{"amount": 75000, "currency": "INR", "receipt": "final_verification"}'
+# Verify Health
+curl -f http://localhost:8000/api/v1/test/merchant
+
+# Verify Queue
+curl -f http://localhost:8000/api/v1/test/jobs/status
 ```
 
-> **Note**: Copy the `id` returned from the response (e.g., `order_yVWbPfcNrb5Rpkxt`).
-
-### 2. Process Payment
-Open the hosted checkout page with your Order ID:
-
-`http://localhost:3001/?order_id=YOUR_ORDER_ID`
-
-1.  **Select Method**: Choose Credit Card or UPI.
-2.  **Pay**: Click "Pay Now".
-3.  **Wait**: Observe the simulated processing delay and final status.
-
-### 3. Verify in Dashboard
-Confirm the transaction was recorded.
-
-1.  Access **[Merchant Dashboard](http://localhost:3000)**.
-2.  **Login**:
-    - Email: `test@example.com`
-    - Password: *(Any secure password)*
-3.  Navigate to **Transactions** to view the real-time status.
-
----
-
-## 📸 Screenshots
-
-**1. Merchant Dashboard**
-> *Login, Admin Overview, and Transaction History.*
-<p float="left">
-  <img src="docs/screenshots/merchant_login.png" width="30%" />
-  <img src="docs/screenshots/dashboard_overview.png" width="30%" /> 
-  <img src="docs/screenshots/dashboard_transactions.png" width="30%" />
-</p>
-
-**2. Payment Experience**
-> *Hosted checkout forms (UPI & Card), real-time processing, and success confirmation.*
-<p float="left">
-  <img src="docs/screenshots/UPI_form.png" width="22%" />
-  <img src="docs/screenshots/Card_form.png" width="22%" />
-  <img src="docs/screenshots/payment_processing.png" width="22%" />
-  <img src="docs/screenshots/payment_successful.png" width="22%" /> 
-</p>
-
----
-
-## 🛡️ Automated Testing
-
-The project now includes a suite of automated tests for the backend. You can run these using Docker without needing to install Maven locally.
-
-**Run Backend Tests:**
-```bash
-docker run --rm -v "${PWD}/backend:/usr/src/app" -w /usr/src/app maven:3.9-eclipse-temurin-17 mvn test
-```
-*Note: On Windows PowerShell, use `${PWD}`. On Command Prompt, use `%cd%`.*
-
----
-
-## 🔌 API Reference
-
-| Method | Endpoint | Description | Auth Required |
-| :--- | :--- | :--- | :---: |
-| `GET` | `/health` | Check system availability | ❌ |
-| `POST` | `/api/v1/orders` | Create a new payment order | ✅ |
-| `POST` | `/api/v1/payments` | Process a payment | ✅ |
-| `GET` | `/api/v1/payments/{id}` | Retrieve payment details | ✅ |
+### Manual Verification
+1.  Open Dashboard.
+2.  Go to **API Docs** -> copy the "Create Order" curl command.
+3.  Execute it to get an `order_id`.
+4.  Use `checkout.js` or `POST /api/v1/payments` to complete payment.
+5.  Check **Webhooks** tab in Dashboard to see the `payment.success` event.

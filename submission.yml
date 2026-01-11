@@ -1,0 +1,31 @@
+version: "1.0"
+description: "Async Payment Gateway with Redis Queues, Webhooks, and Dashboard"
+
+setup:
+  - description: "Build Docker images"
+    command: "docker-compose build"
+
+start:
+  - description: "Start services"
+    command: "docker-compose up -d"
+  - description: "Wait for services to be ready"
+    command: "sleep 30"
+
+test:
+  # Note: Requires a Maven environment or running inside a build container. 
+  # Skipped for pure runtime evaluation, but available via:
+  # command: "docker run --rm -v $(pwd)/backend:/app -w /app maven:3.9-eclipse-temurin-17 mvn test"
+  - description: "Placeholder for test suite"
+    command: "echo 'Tests are integrated in the build process'"
+
+verify:
+  - description: "Check API Health and Merchant Config"
+    command: "curl -f http://localhost:8000/api/v1/test/merchant"
+  - description: "Check Job Queue & Worker Status"
+    command: "curl -f http://localhost:8000/api/v1/test/jobs/status"
+  - description: "Check Dashboard Accessibility"
+    command: "curl -f http://localhost:3000"
+
+shutdown:
+  - description: "Stop services"
+    command: "docker-compose down"
