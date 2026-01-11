@@ -34,7 +34,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://gateway_user:gateway_pass@postgres:5432/payment_gateway
+      DATABASE_URL: jdbc:postgresql://postgres:5432/payment_gateway
       REDIS_URL: redis://redis:6379
       PORT: 8000
     depends_on:
@@ -49,7 +49,7 @@ services:
       dockerfile: Dockerfile.worker
     container_name: gateway_worker
     environment:
-      DATABASE_URL: postgresql://gateway_user:gateway_pass@postgres:5432/payment_gateway
+      DATABASE_URL: jdbc:postgresql://postgres:5432/payment_gateway
       REDIS_URL: redis://redis:6379
       TEST_MODE: "${TEST_MODE:-false}"
       TEST_PAYMENT_SUCCESS: "${TEST_PAYMENT_SUCCESS:-true}"

@@ -18,6 +18,24 @@ public class TestController {
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
 
+    @org.springframework.beans.factory.annotation.Value("${gateway.test.merchant.name:Test Merchant}")
+    private String testMerchantName;
+
+    @org.springframework.beans.factory.annotation.Value("${gateway.test.merchant.api-key}")
+    private String testApiKey;
+
+    @org.springframework.beans.factory.annotation.Value("${gateway.test.merchant.api-secret}")
+    private String testApiSecret;
+
+    @GetMapping("/merchant")
+    public ResponseEntity<Map<String, String>> getTestMerchant() {
+        Map<String, String> data = new HashMap<>();
+        data.put("name", testMerchantName);
+        data.put("apiKey", testApiKey);
+        data.put("apiSecret", testApiSecret);
+        return ResponseEntity.ok(data);
+    }
+
     @GetMapping("/jobs/status")
     public ResponseEntity<Map<String, Object>> getJobStatus() {
         Map<String, Object> status = new HashMap<>();
