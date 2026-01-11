@@ -51,6 +51,10 @@ services:
     environment:
       DATABASE_URL: postgresql://gateway_user:gateway_pass@postgres:5432/payment_gateway
       REDIS_URL: redis://redis:6379
+      TEST_MODE: "${TEST_MODE:-false}"
+      TEST_PAYMENT_SUCCESS: "${TEST_PAYMENT_SUCCESS:-true}"
+      TEST_PROCESSING_DELAY: "${TEST_PROCESSING_DELAY:-1000}"
+      WEBHOOK_RETRY_INTERVALS_TEST: "${WEBHOOK_RETRY_INTERVALS_TEST:-false}"
     depends_on:
       postgres:
         condition: service_healthy

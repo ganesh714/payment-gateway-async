@@ -31,13 +31,13 @@ public class PaymentWorker {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Value("${test.mode:false}")
+    @Value("${gateway.simulation.test-mode:false}")
     private boolean testMode;
 
-    @Value("${test.payment.success:true}")
+    @Value("${gateway.simulation.test-payment-success:true}")
     private boolean testPaymentSuccess;
 
-    @Value("${test.processing.delay:1000}")
+    @Value("${gateway.simulation.test-processing-delay:1000}")
     private long testProcessingDelay;
 
     public void process(ProcessPaymentJob job) {
